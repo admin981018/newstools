@@ -32,7 +32,6 @@ jobs:
             --name "喜洋洋工具库" ^
             --icon "favicon.ico" ^
             --clean ^
-            --add-data "assets;assets" ^
             main.py
 
       - name: Upload Windows EXE
