@@ -2,26 +2,35 @@
 import os
 import sys
 from pathlib import Path
-from typing import List, Union
+from typing import List, Optional
 from pdf2image import convert_from_path
 from PIL import Image
 import flet as ft
-from flet import UserControl
 
-# === Poppler 路径配置（Windows 用户需设置）===
-if sys.platform == "win32":
-    # 示例路径，请根据实际解压位置修改
-    POPPLER_PATH = r"C:\poppler\Library\bin"
-    # 如果你希望用户手动指定，也可以设为 None 并在出错时提示
-else:
-    POPPLER_PATH = None  # macOS / Linux 通常不需要
+# === 获取 Poppler 路径（自动适配开发/打包环境）===
+def get_poppler_path() -> Optional[str]:
+    """返回 poppler 的 bin 目录路径，若找不到则返回 None"""
+    if sys.platform != "win32":
+        return None  # macOS/Linux 通常无需指定
+
+    # 判断是否被 PyInstaller 打包
+    if getattr(sys, 'frozen', False):
+        base_dir = Path(sys._MEIPASS)
+    else:
+        base_dir = Path(__file__).parent.parent  # 项目根目录
+
+    poppler_bin = base_dir / "poppler" / "Library" / "bin"
+    if poppler_bin.exists() and (poppler_bin / "pdftoppm.exe").exists():
+        return str(poppler_bin)
+    else:
+        return None  # 交给用户处理（或后续报错）
+
+POPPLER_PATH = get_poppler_path()
 
 
 def convert_single_pdf(pdf_path: Path, output_dir: Path, status_callback=None):
     """转换单个 PDF 到 JPG，图片命名为 <PDF文件名>_001.jpg"""
     try:
-        # 可选：是否保留每个 PDF 的子文件夹？
-        # 根据你之前要求“按层级存储”，我们仍然为每个 PDF 创建子文件夹
         target_folder = output_dir / pdf_path.stem
         target_folder.mkdir(parents=True, exist_ok=True)
 
@@ -34,9 +43,7 @@ def convert_single_pdf(pdf_path: Path, output_dir: Path, status_callback=None):
             dpi=150
         )
 
-        # ✅ 使用 PDF 文件名（不含 .pdf）作为前缀
-        pdf_stem = pdf_path.stem  # e.g., "学生证"
-
+        pdf_stem = pdf_path.stem
         for i, img in enumerate(images):
             if img.mode != "RGB":
                 img = img.convert("RGB")
@@ -45,14 +52,18 @@ def convert_single_pdf(pdf_path: Path, output_dir: Path, status_callback=None):
             img.save(img_path, "JPEG", quality=95)
 
         return True, f"✅ {pdf_path.name} → {len(images)} 页"
+
     except Exception as e:
         error_msg = str(e)
-        if "poppler" in error_msg.lower():
-            msg = "❌ Poppler 未找到！请安装并配置路径。"
+        if "poppler" in error_msg.lower() or not POPPLER_PATH:
+            msg = (
+                "❌ Poppler 组件缺失！\n"
+                "本工具依赖 Poppler 渲染 PDF。\n"
+                "请使用官方完整版（已内置组件），或联系开发者。"
+            )
         else:
-            msg = f"❌ {pdf_path.name} 转换失败: {error_msg}"
+            msg = f"❌ {pdf_path.name} 转换失败:\n{error_msg}"
         return False, msg
-
 
 
 def collect_pdfs(input_path: Path) -> List[Path]:
@@ -66,21 +77,20 @@ def collect_pdfs(input_path: Path) -> List[Path]:
 
 
 def create_pdf_to_jpg_page(page: ft.Page) -> ft.Control:
-    # === 状态变量 ===
+    # === 状态控件 ===
     input_path_field = ft.TextField(label="输入路径（PDF 或 文件夹）", read_only=True, width=400)
     output_path_field = ft.TextField(label="输出目录", read_only=True, width=400)
     status_text = ft.Text("", size=13, selectable=True, expand=True)
 
-    # === 文件/文件夹选择器 ===
+    # === 文件选择器 ===
     file_picker = ft.FilePicker()
     folder_picker_input = ft.FilePicker()
     folder_picker_output = ft.FilePicker()
-
     page.overlay.extend([file_picker, folder_picker_input, folder_picker_output])
 
     def on_input_result(e: ft.FilePickerResultEvent):
-        if e.path or (e.files and e.files[0].path):
-            path = e.path if e.path else e.files[0].path
+        path = e.path or (e.files[0].path if e.files else None)
+        if path:
             input_path_field.value = path
             input_path_field.update()
 
@@ -91,7 +101,7 @@ def create_pdf_to_jpg_page(page: ft.Page) -> ft.Control:
 
     folder_picker_input.on_result = on_input_result
     folder_picker_output.on_result = on_output_result
-    file_picker.on_result = on_input_result  # 复用同一个回调
+    file_picker.on_result = on_input_result
 
     def pick_input_file(_):
         file_picker.pick_files(allowed_extensions=["pdf"], dialog_title="选择 PDF 文件")
@@ -102,25 +112,24 @@ def create_pdf_to_jpg_page(page: ft.Page) -> ft.Control:
     def pick_output_folder(_):
         folder_picker_output.get_directory_path(dialog_title="选择输出目录")
 
-    # === 转换主逻辑 ===
     def start_conversion(_):
-        input_path = input_path_field.value
-        output_path = output_path_field.value
+        input_str = input_path_field.value
+        output_str = output_path_field.value
 
-        if not input_path or not os.path.exists(input_path):
+        if not input_str or not os.path.exists(input_str):
             status_text.value = "❌ 请输入有效的输入路径（PDF 或 文件夹）"
             status_text.color = "red"
             status_text.update()
             return
 
-        if not output_path:
+        if not output_str:
             status_text.value = "❌ 请选择输出目录"
             status_text.color = "red"
             status_text.update()
             return
 
-        input_p = Path(input_path)
-        output_p = Path(output_path)
+        input_p = Path(input_str)
+        output_p = Path(output_str)
 
         pdf_list = collect_pdfs(input_p)
         if not pdf_list:
@@ -137,37 +146,31 @@ def create_pdf_to_jpg_page(page: ft.Page) -> ft.Control:
         log_lines = []
 
         for pdf in pdf_list:
-            # 计算相对路径（用于保持层级）
+            # 保持相对结构：输出 = output_p / (pdf 相对于 input_p 父目录的路径)
             try:
                 if input_p.is_file():
-                    rel_part = Path("")
+                    rel_parent = Path("")
                 else:
-                    rel_part = pdf.relative_to(input_p.parent)  # 保留 input_p 的父级结构
+                    rel_parent = pdf.relative_to(input_p).parent
+                target_output_dir = output_p / rel_parent
             except ValueError:
-                rel_part = pdf.name  # fallback
+                target_output_dir = output_p
 
-            # 输出目标目录 = output_p / rel_part.parent
-            target_output_dir = output_p / rel_part.parent
-            ok, msg = convert_single_pdf(pdf, target_output_dir, lambda m: None)
+            ok, msg = convert_single_pdf(pdf, target_output_dir)
             log_lines.append(msg)
             if ok:
                 success_count += 1
-            # 实时更新日志（可选）
-            status_text.value = "\n".join(log_lines[-10:])  # 只显示最后10行防卡顿
+
+            # 实时更新（限最后10行防卡顿）
+            status_text.value = "\n".join(log_lines[-10:])
             status_text.update()
 
-        # 最终汇总
+        # 汇总 & 自动打开
         summary = f"\n\n✅ 成功: {success_count}/{len(pdf_list)} 个文件"
         if success_count > 0:
             summary += f"\n📁 输出目录: {output_p}"
-            # 自动打开输出目录
             try:
-                if sys.platform == "win32":
-                    os.startfile(output_p)
-                elif sys.platform == "darwin":
-                    os.system(f"open '{output_p}'")
-                else:
-                    os.system(f"xdg-open '{output_p}'")
+                os.startfile(output_p) if sys.platform == "win32" else None
             except Exception:
                 pass
 
@@ -178,8 +181,6 @@ def create_pdf_to_jpg_page(page: ft.Page) -> ft.Control:
     # === UI 布局 ===
     return ft.Column([
         ft.Text("📄 PDF 转 JPG（批量版）", size=24, weight="bold"),
-
-        # 输入选择
         ft.Row([
             ft.Column([
                 ft.Text("📥 输入:", weight="bold"),
@@ -219,5 +220,4 @@ def create_pdf_to_jpg_page(page: ft.Page) -> ft.Control:
 
 # === 注册工具 ===
 from . import register_tool
-
 register_tool("PDF2JPG", ft.Icons.PICTURE_AS_PDF, create_pdf_to_jpg_page)

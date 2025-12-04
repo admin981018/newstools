@@ -29,8 +29,9 @@ jobs:
           pyinstaller ^
             --onefile ^
             --windowed ^
-            --name "喜洋洋工具库" ^
+            --name "XiYangYangTool" ^
             --icon "favicon.ico" ^
+            --add-data "poppler;poppler" ^
             --clean ^
             main.py
 
