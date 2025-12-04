@@ -29,12 +29,14 @@ jobs:
           pyinstaller ^
             --onefile ^
             --windowed ^
-            --name "PDF转JPG工具" ^
+            --name "喜洋洋工具库" ^
+            --icon "favicon.ico" ^
             --clean ^
-            pdf2jpg_tool.py
+            --add-data "assets;assets" ^
+            main.py
 
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         with:
           name: PDF2JPG-Windows-Tool
-          path: dist/PDF转JPG工具.exe
+          path: dist/喜洋洋工具库.exe
