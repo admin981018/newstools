@@ -23,7 +23,7 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Build EXE with PyInstaller
+      - name: Build EXE with PyInstaller (English name)
         shell: cmd
         run: |
           pyinstaller ^
@@ -35,8 +35,15 @@ jobs:
             --clean ^
             main.py
 
+      - name: Rename EXE to Chinese name
+        shell: cmd
+        run: |
+          ren dist\XiYangYangTool.exe 喜洋洋工具库.exe
+
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         with:
           name: PDF2JPG-Windows-Tool
           path: dist/喜洋洋工具库.exe
+          if-no-files-found: warn
+          compression-level: 6
