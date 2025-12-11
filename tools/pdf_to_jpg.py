@@ -8,6 +8,7 @@ from PIL import Image
 import io
 import flet as ft
 
+
 def convert_single_pdf(pdf_path: Path, output_dir: Path, status_callback=None) -> Tuple[bool, str]:
     """转换单个 PDF 到 JPG，使用 fitz 渲染，图片命名为 <PDF文件名>_001.jpg"""
     try:
@@ -17,19 +18,19 @@ def convert_single_pdf(pdf_path: Path, output_dir: Path, status_callback=None) -
         if status_callback:
             status_callback(f"正在转换 {pdf_path.name}...")
 
-        # 使用 fitz 打开并渲染
+        # 打开 PDF 并提前获取页数（关键！避免关闭后访问）
         doc = fitz.open(pdf_path)
+        page_count = len(doc)
         pdf_stem = pdf_path.stem
+
         for i, page in enumerate(doc):
-            # 提高分辨率（2x）
+            # 提高分辨率（约 150–200 DPI）
             mat = fitz.Matrix(2.0, 2.0)
-            pix = page.get_pixmap(matrix=mat, alpha=False)  # alpha=False → RGB
+            pix = page.get_pixmap(matrix=mat, alpha=False)  # RGB 模式
 
             # 转为 PIL Image
             img_data = pix.tobytes("ppm")
             img = Image.open(io.BytesIO(img_data))
-
-            # 确保是 RGB 模式
             if img.mode != "RGB":
                 img = img.convert("RGB")
 
@@ -37,12 +38,12 @@ def convert_single_pdf(pdf_path: Path, output_dir: Path, status_callback=None) -
             img_path = target_folder / img_filename
             img.save(img_path, "JPEG", quality=95)
 
-        doc.close()
-        return True, f"✅ {pdf_path.name} → {len(doc)} 页"
+        doc.close()  # 安全关闭
+
+        return True, f"✅ {pdf_path.name} → {page_count} 页"
 
     except Exception as e:
         error_msg = str(e)
-        # fitz 报错通常很明确，无需特殊 poppler 提示
         msg = f"❌ {pdf_path.name} 转换失败:\n{error_msg}"
         return False, msg
 
@@ -99,13 +100,13 @@ def create_pdf_to_jpg_page(page: ft.Page) -> ft.Control:
 
         if not input_str or not os.path.exists(input_str):
             status_text.value = "❌ 请输入有效的输入路径（PDF 或 文件夹）"
-            status_text.color = "red"
+            status_text.color = ft.Colors.RED
             status_text.update()
             return
 
         if not output_str:
             status_text.value = "❌ 请选择输出目录"
-            status_text.color = "red"
+            status_text.color = ft.Colors.RED
             status_text.update()
             return
 
@@ -115,12 +116,12 @@ def create_pdf_to_jpg_page(page: ft.Page) -> ft.Control:
         pdf_list = collect_pdfs(input_p)
         if not pdf_list:
             status_text.value = "❌ 未找到任何 PDF 文件"
-            status_text.color = "red"
+            status_text.color = ft.Colors.RED
             status_text.update()
             return
 
         status_text.value = f"🔄 准备转换 {len(pdf_list)} 个 PDF 文件...\n"
-        status_text.color = "blue"
+        status_text.color = ft.Colors.BLUE
         status_text.update()
 
         success_count = 0
@@ -161,7 +162,7 @@ def create_pdf_to_jpg_page(page: ft.Page) -> ft.Control:
                 pass
 
         status_text.value = "\n".join(log_lines) + summary
-        status_text.color = "green" if success_count > 0 else "red"
+        status_text.color = ft.Colors.GREEN if success_count > 0 else ft.Colors.RED
         status_text.update()
 
     # === UI 布局 ===
@@ -190,16 +191,16 @@ def create_pdf_to_jpg_page(page: ft.Page) -> ft.Control:
             icon=ft.Icons.PLAY_ARROW,
             on_click=start_conversion,
             height=50,
-            style=ft.ButtonStyle(color=ft.colors.WHITE, bgcolor=ft.colors.BLUE)
+            style=ft.ButtonStyle(color=ft.Colors.WHITE, bgcolor=ft.Colors.BLUE)
         ),
         ft.Divider(),
         ft.Container(
             content=status_text,
             padding=10,
-            border=ft.border.all(1, ft.colors.GREY_300),
+            border=ft.border.all(1, ft.Colors.GREY_300),
             border_radius=8,
             expand=True,
-            bgcolor=ft.colors.BLACK12
+            bgcolor=ft.Colors.BLACK12
         )
     ], expand=True, scroll=ft.ScrollMode.AUTO)
 

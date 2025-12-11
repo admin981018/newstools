@@ -31,8 +31,8 @@ jobs:
             --onefile ^
             --windowed ^
             --name MyTools ^
-            --hidden-import=flet.core.page ^
-            --hidden-import=flet.runtime ^
+            --icon favicon.ico ^
+            --collect-all flet ^
             main.py
 
       - name: Upload artifact
