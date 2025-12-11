@@ -1,4 +1,4 @@
-name: Build Flet Tool with PyMuPDF
+name: Build EXE
 
 on:
   push:
@@ -8,34 +8,39 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller
+          pip install -r requirements.txt pyinstaller
 
-      - name: Build EXE
-        shell: cmd
+      - name: Verify Flet version
+        run: python -c "import flet; print('Flet version:', flet.__version__)"
+
+      - name: Build executable
         run: |
           pyinstaller ^
             --onefile ^
             --windowed ^
-            --add-data "poppler;poppler" ^
-            --hidden-import=tools.pdf_to_jpg ^
-            --name "XiYangYangTool" ^
+            --name MyTools ^
+            --hidden-import=flet.core.page ^
+            --hidden-import=flet.runtime ^
             main.py
 
-      - name: Upload Artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: XiYangYangTool-Final
-          path: dist/XiYangYangTool.exe
+          name: MyTools-Windows
+          path: dist/MyTools.exe
