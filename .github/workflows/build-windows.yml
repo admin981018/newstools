@@ -22,8 +22,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pyinstaller
 
-      - name: Verify Flet version
-        run: python -c "import flet; print('Flet version:', flet.__version__)"
+      - name: Confirm Flet version
+        run: python -c "from importlib.metadata import version; print('✅ Flet version:', version('flet'))"
 
       - name: Build executable
         run: |
