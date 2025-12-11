@@ -28,12 +28,12 @@ jobs:
 
       - name: Build executable
         run: |
-          pyinstaller ^
-            --onefile ^
-            --windowed ^
-            --name MyTools ^
-            --icon favicon.ico ^
-            --collect-all flet ^
+          pyinstaller `
+            --onefile `
+            --windowed `
+            --name MyTools `
+            --icon favicon.ico `
+            --collect-all flet `
             main.py
 
       - name: Upload artifact
