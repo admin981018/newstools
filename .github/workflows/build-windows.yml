@@ -34,6 +34,7 @@ jobs:
             --name MyTools `
             --icon favicon.ico `
             --collect-all flet `
+            --collect-all flet-desktop `
             main.py
 
       - name: Upload artifact
