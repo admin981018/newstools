@@ -1,18 +1,14 @@
 # main.py
 import flet as ft
 from home_page import HomePage
-from tools import get_tools
-
-# 导入所有工具（触发注册）
-import tools.pdf_to_jpg  # 👈 必须导入才能注册！
+from tools import get_tools  # 👈 触发自动注册
 
 def main(page: ft.Page):
-    page.title = "工具库"
+    page.title = "喜洋洋工具库"
     page.window.width = 800
     page.window.height = 600
     page.padding = 20
 
-    # 存储工具构建函数的映射
     tool_builders = {name: builder for name, _, builder in get_tools()}
 
     def go_back_to_home(_):
@@ -32,7 +28,10 @@ def main(page: ft.Page):
                     [
                         ft.AppBar(
                             title=ft.Text(tool_name),
-                            leading=ft.IconButton(ft.Icons.ARROW_BACK, on_click=go_back_to_home),
+                            leading=ft.IconButton(
+                                ft.Icons.ARROW_BACK,
+                                on_click=go_back_to_home
+                            ),
                             bgcolor=ft.colors.SURFACE_VARIANT
                         ),
                         tool_builders[tool_name](page)
@@ -41,7 +40,7 @@ def main(page: ft.Page):
             )
             page.update()
 
-    # 初始主页
     go_back_to_home(None)
 
-ft.app(target=main)
+if __name__ == "__main__":
+    ft.app(target=main)

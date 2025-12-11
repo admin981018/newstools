@@ -2,34 +2,14 @@
 import os
 import sys
 from pathlib import Path
-from typing import List, Optional
-from pdf2image import convert_from_path
+from typing import List, Tuple
+import fitz  # PyMuPDF
 from PIL import Image
+import io
 import flet as ft
 
-# === 获取 Poppler 路径（自动适配开发/打包环境）===
-def get_poppler_path() -> Optional[str]:
-    """返回 poppler 的 bin 目录路径，若找不到则返回 None"""
-    if sys.platform != "win32":
-        return None  # macOS/Linux 通常无需指定
-
-    # 判断是否被 PyInstaller 打包
-    if getattr(sys, 'frozen', False):
-        base_dir = Path(sys._MEIPASS)
-    else:
-        base_dir = Path(__file__).parent.parent  # 项目根目录
-
-    poppler_bin = base_dir / "poppler" / "Library" / "bin"
-    if poppler_bin.exists() and (poppler_bin / "pdftoppm.exe").exists():
-        return str(poppler_bin)
-    else:
-        return None  # 交给用户处理（或后续报错）
-
-POPPLER_PATH = get_poppler_path()
-
-
-def convert_single_pdf(pdf_path: Path, output_dir: Path, status_callback=None):
-    """转换单个 PDF 到 JPG，图片命名为 <PDF文件名>_001.jpg"""
+def convert_single_pdf(pdf_path: Path, output_dir: Path, status_callback=None) -> Tuple[bool, str]:
+    """转换单个 PDF 到 JPG，使用 fitz 渲染，图片命名为 <PDF文件名>_001.jpg"""
     try:
         target_folder = output_dir / pdf_path.stem
         target_folder.mkdir(parents=True, exist_ok=True)
@@ -37,32 +17,33 @@ def convert_single_pdf(pdf_path: Path, output_dir: Path, status_callback=None):
         if status_callback:
             status_callback(f"正在转换 {pdf_path.name}...")
 
-        images = convert_from_path(
-            str(pdf_path),
-            poppler_path=POPPLER_PATH,
-            dpi=150
-        )
-
+        # 使用 fitz 打开并渲染
+        doc = fitz.open(pdf_path)
         pdf_stem = pdf_path.stem
-        for i, img in enumerate(images):
+        for i, page in enumerate(doc):
+            # 提高分辨率（2x）
+            mat = fitz.Matrix(2.0, 2.0)
+            pix = page.get_pixmap(matrix=mat, alpha=False)  # alpha=False → RGB
+
+            # 转为 PIL Image
+            img_data = pix.tobytes("ppm")
+            img = Image.open(io.BytesIO(img_data))
+
+            # 确保是 RGB 模式
             if img.mode != "RGB":
                 img = img.convert("RGB")
+
             img_filename = f"{pdf_stem}_{str(i + 1).zfill(3)}.jpg"
             img_path = target_folder / img_filename
             img.save(img_path, "JPEG", quality=95)
 
-        return True, f"✅ {pdf_path.name} → {len(images)} 页"
+        doc.close()
+        return True, f"✅ {pdf_path.name} → {len(doc)} 页"
 
     except Exception as e:
         error_msg = str(e)
-        if "poppler" in error_msg.lower() or not POPPLER_PATH:
-            msg = (
-                "❌ Poppler 组件缺失！\n"
-                "本工具依赖 Poppler 渲染 PDF。\n"
-                "请使用官方完整版（已内置组件），或联系开发者。"
-            )
-        else:
-            msg = f"❌ {pdf_path.name} 转换失败:\n{error_msg}"
+        # fitz 报错通常很明确，无需特殊 poppler 提示
+        msg = f"❌ {pdf_path.name} 转换失败:\n{error_msg}"
         return False, msg
 
 
@@ -170,7 +151,12 @@ def create_pdf_to_jpg_page(page: ft.Page) -> ft.Control:
         if success_count > 0:
             summary += f"\n📁 输出目录: {output_p}"
             try:
-                os.startfile(output_p) if sys.platform == "win32" else None
+                if sys.platform == "win32":
+                    os.startfile(output_p)
+                elif sys.platform == "darwin":
+                    os.system(f'open "{output_p}"')
+                else:
+                    os.system(f'xdg-open "{output_p}"')
             except Exception:
                 pass
 
@@ -220,4 +206,4 @@ def create_pdf_to_jpg_page(page: ft.Page) -> ft.Control:
 
 # === 注册工具 ===
 from . import register_tool
-register_tool("PDF2JPG", ft.Icons.PICTURE_AS_PDF, create_pdf_to_jpg_page)
+register_tool("PDF转JPG", ft.Icons.PICTURE_AS_PDF, create_pdf_to_jpg_page)

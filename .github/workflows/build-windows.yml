@@ -1,4 +1,4 @@
-name: Build PDF2JPG Tool
+name: Build Flet Tool with PyMuPDF
 
 on:
   push:
@@ -23,27 +23,19 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Build EXE with PyInstaller (English name)
+      - name: Build EXE
         shell: cmd
         run: |
           pyinstaller ^
             --onefile ^
             --windowed ^
-            --name "XiYangYangTool" ^
-            --icon "favicon.ico" ^
             --add-data "poppler;poppler" ^
-            --clean ^
+            --hidden-import=tools.pdf_to_jpg ^
+            --name "XiYangYangTool" ^
             main.py
 
-      - name: Rename EXE to Chinese name
-        shell: cmd
-        run: |
-          ren dist\XiYangYangTool.exe 喜洋洋工具库.exe
-
-      - name: Upload Windows EXE
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PDF2JPG-Windows-Tool
-          path: dist/喜洋洋工具库.exe
-          if-no-files-found: warn
-          compression-level: 6
+          name: XiYangYangTool-Final
+          path: dist/XiYangYangTool.exe
