@@ -24,7 +24,7 @@ jobs:
           pip install -r requirements.txt pyinstaller
 
       - name: Confirm Flet version
-        run: python -c "from importlib.metadata import version; print('✅ Flet version:', version('flet'))"
+        run: python -c "from importlib.metadata import version; print('Flet version:', version('flet'))"
 
       - name: Build executable
         run: |
