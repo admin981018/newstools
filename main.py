@@ -14,7 +14,7 @@ import flet as ft
 from home_page import HomePage
 from tools import get_tools  # 触发工具发现
 import tools.pdf_to_jpg  # 显式导入工具模块
-import tools.ocr_to_doc  # 显式导入OCR工具模块
+# 移除OCR工具模块的导入
 
 def main(page: ft.Page):
     page.title = "喜洋洋工具库"
