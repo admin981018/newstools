@@ -5,15 +5,23 @@ from pathlib import Path
 from typing import List, Tuple
 from docx import Document
 from openpyxl import Workbook
-from paddleocr import PaddleOCR
 import flet as ft
 from PIL import Image
 
 # 初始化 OCR（只初始化一次）
 _ocr_engine = None
 
+# 延迟导入PaddleOCR，避免启动时加载
+PaddleOCR = None
+
 def get_ocr_engine():
-    global _ocr_engine
+    global _ocr_engine, PaddleOCR
+    
+    # 延迟导入PaddleOCR，只有在第一次使用时才导入
+    if PaddleOCR is None:
+        from paddleocr import PaddleOCR as _PaddleOCR
+        PaddleOCR = _PaddleOCR
+    
     if _ocr_engine is None:
         # 获取当前脚本所在目录
         script_dir = Path(__file__).parent.parent
