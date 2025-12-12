@@ -36,7 +36,7 @@ jobs:
             --collect-all flet `
             --collect-all flet-desktop `
             --collect-all paddlex `
-            --hookspath . `
+            --additional-hooks-dir . `
             main.py
 
       - name: Upload artifact
