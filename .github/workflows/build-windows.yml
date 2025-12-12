@@ -35,6 +35,8 @@ jobs:
             --icon favicon.ico `
             --collect-all flet `
             --collect-all flet-desktop `
+            --collect-all paddlex `
+            --hookspath . `
             main.py
 
       - name: Upload artifact
