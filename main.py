@@ -1,7 +1,20 @@
 # main.py
+import ssl
+import urllib.request
+
+# 全局禁用SSL证书验证，解决Flet启动时的证书问题
+ssl._create_default_https_context = ssl._create_unverified_context
+urllib.request.install_opener(
+    urllib.request.build_opener(
+        urllib.request.HTTPSHandler(context=ssl._create_unverified_context())
+    )
+)
+
 import flet as ft
 from home_page import HomePage
-from tools import get_tools  # 👈 触发自动注册
+from tools import get_tools  # 触发工具发现
+import tools.pdf_to_jpg  # 显式导入工具模块
+import tools.ocr_to_doc  # 显式导入OCR工具模块
 
 def main(page: ft.Page):
     page.title = "喜洋洋工具库"
@@ -43,4 +56,5 @@ def main(page: ft.Page):
     go_back_to_home(None)
 
 if __name__ == "__main__":
+    # 运行Flet应用
     ft.app(target=main)
